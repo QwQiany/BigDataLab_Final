@@ -25,13 +25,12 @@ class GCNModel(torch.nn.Module):
 
 def main():
     # 解析命令行参数
-    parser = argparse.ArgumentParser(description='Train GCN model on student data')
-    parser.add_argument('--data_path', type=str, required=True, help='Path to the data file')
-    parser.add_argument('--dataset_type', type=str, choices=['3class', '2class'], default='3class',
-                       help='Type of dataset: 3class for 3 GPA categories, 2class for 2 GPA categories')
+    parser = argparse.ArgumentParser(description='Train GCN model on Happiness Data')
+    # parser.add_argument('--data_path', type=str, required=True, help='Path to the data file') # Deprecated
+    # parser.add_argument('--dataset_type', type=str, choices=['3class', '2class'], default='3class', help='Type of dataset') # Deprecated
     parser.add_argument('--k', type=int, default=10, help='Number of neighbors for KNN graph')
     parser.add_argument('--hidden_dim', type=int, default=128, help='Hidden dimension size')
-    parser.add_argument('--epochs', type=int, default=10000, help='Number of training epochs')
+    parser.add_argument('--epochs', type=int, default=2000, help='Number of training epochs')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--test_size', type=float, default=0.2, help='Test set size ratio')
     parser.add_argument('--random_state', type=int, default=42, help='Random state for splitting')
@@ -42,22 +41,24 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    # 读取数据并根据数据集类型处理
-    student_feature = pd.read_csv(args.data_path)
+    # 读取数据 (Hardcoded for processed_happiness_data.csv)
+    data_path = "processed_happiness_data.csv"
+    print(f"Loading data from {data_path}...")
+    df = pd.read_csv(data_path)
     
-    if args.dataset_type == '3class':
-        # 三分类数据集处理
-        features = student_feature.iloc[:, 1:].astype(np.float32).values
-        labels = student_feature.iloc[:, 0].values
-    else:
-        # 二分类数据集处理
-        features = student_feature.drop(columns=["label", "BH"]).astype(np.float32).values
-        labels = student_feature["label"].values
+    # 数据预处理
+    # 第一列是国家名字(忽略), 第二列是标签, 剩下的列是特征
+    labels = df.iloc[:, 1].values
+    features = df.iloc[:, 2:].values
     
     # 转换为Tensor并移动到设备
     features = torch.tensor(features, dtype=torch.float32).to(device)
     labels = torch.tensor(labels, dtype=torch.long).to(device)
     
+    print(f"Features shape: {features.shape}")
+    print(f"Labels shape: {labels.shape}")
+    print(f"Unique labels: {np.unique(labels.cpu().numpy())}")
+
     # 构建KNN图
     knn = NearestNeighbors(n_neighbors=args.k, metric='euclidean')
     knn.fit(features.cpu().numpy())
@@ -101,7 +102,7 @@ def main():
         optimizer.step()
         train_losses.append(train_loss.item())
         
-        if (epoch + 1) % 1000 == 0:
+        if (epoch + 1) % 100 == 0:
             print(f"Epoch {epoch+1}/{args.epochs}, Train Loss: {train_loss.item():.4f}")
     
     # 绘制训练损失曲线
@@ -111,7 +112,7 @@ def main():
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.grid(True)
-    plt.show()
+    # plt.show() # Prevent blocking in non-interactive environments if needed, but keeping for now
     
     # 在测试集上评估模型
     model.eval()
@@ -129,38 +130,23 @@ def main():
         print("Classification Report:\n", classification_rep)
     
     # 统计预测结果分布
-    if args.dataset_type == '3class':
-        num_good = sum(predicted_labels.cpu() == 2)
-        num_medium = sum(predicted_labels.cpu() == 1)
-        num_poor = sum(predicted_labels.cpu() == 0)
-        
-        print("\nPredicted Distribution:")
-        print("Number of students with good GPA:", num_good)
-        print("Number of students with medium GPA:", num_medium)
-        print("Number of students with poor GPA:", num_poor)
-        
-        # 绘制三分类条形图
-        categories = ['Poor', 'Medium', 'Good']
-        counts = [num_poor, num_medium, num_good]
-    else:
-        num_good = sum(predicted_labels.cpu() == 1)
-        num_poor = sum(predicted_labels.cpu() == 0)
-        
-        print("\nPredicted Distribution:")
-        print("Number of students with good GPA:", num_good)
-        print("Number of students with poor GPA:", num_poor)
-        
-        # 绘制二分类条形图
-        categories = ['Poor', 'Good']
-        counts = [num_poor, num_good]
+    unique_classes = np.unique(labels.cpu().numpy())
+    categories = [f'Class {c}' for c in unique_classes]
+    counts = []
     
+    print("\nPredicted Distribution:")
+    for c in unique_classes:
+        count = sum(predicted_labels.cpu() == c)
+        print(f"Number of samples in Class {c}: {count}")
+        counts.append(count)
+        
     # 绘制预测分布条形图
     plt.figure(figsize=(8, 6))
     plt.bar(categories, counts)
-    plt.xlabel('GPA Categories')
-    plt.ylabel('Number of Students')
-    plt.title('Distribution of Predicted GPA Categories')
-    plt.show()
+    plt.xlabel('Happiness Categories')
+    plt.ylabel('Number of Samples')
+    plt.title('Distribution of Predicted Happiness Categories')
+    # plt.show()
 
 if __name__ == "__main__":
     main()
