@@ -42,46 +42,34 @@ def load_st_construct_H(
 
     if True:
         
-        student_feature = pd.read_csv("data/student_2_labels.csv")
+        # 读取新的幸福感数据集
+        student_feature = pd.read_csv("processed_happiness_data.csv")
         
         print(student_feature)
-        # 标签在第 0 列
-        lbls = student_feature["label"].values
-        # 特征丢掉 label 和 BH，只保留数值
-        fts = student_feature.drop(columns=["label", "BH"]).astype(np.float32).values
+        # 标签在第 1 列 (index 1)
+        lbls = student_feature.iloc[:, 1].values
+        # 特征从第 2 列开始 (index 2:)
+        fts = student_feature.iloc[:, 2:].astype(np.float32).values
 
-        # 只取前 5000 行（可选）
-        fts = fts[:5000]
-        lbls = lbls[:5000]
-
-        # 转成 numpy (float32) + LongTensor label
+        # 转成 numpy (float32) + int label
         lbls = lbls.astype(int)
 
-        #fts = student_feature.iloc[:5000,1:].astype(np.float32).values  #特征
-        #lbls = student_feature.iloc[:5000,0].values  #标签
-        fts_, x_val, lbls_, y_val = train_test_split(fts,lbls, train_size = 0.8, random_state = 0)
-
-        #fts_ = pd.DataFrame(fts_)
-        #fts_G= data.iloc[:,1:].astype(np.float32).values #all 1
-        fts_info = fts_[:, 0:2].astype(np.float32)
-        fts_library = fts_[:, 2:11].astype(np.float32)
-        fts_breakfast = fts_[:, 11:19].astype(np.float32)
-        fts_lunch = fts_[:, 27:34].astype(np.float32)
-        fts_dinner = fts_[:, 19:27].astype(np.float32)
+        # 划分训练集和测试集
+        fts_, x_val, lbls_, y_val = train_test_split(fts, lbls, train_size=0.8, random_state=0)
         
-        
-        #fts, lbls = RandomOverSampler().fit_resample(fts, lbls)
         x = pd.DataFrame(fts_)
         y = pd.Series(lbls_)
-        x_train, x_val, y_train, y_val = train_test_split(x,y, train_size = 0.8, random_state = 0)
+        x_train, x_val, y_train, y_val = train_test_split(x, y, train_size=0.8, random_state=0)
         idx_train = x_train.index
         idx_test = x_val.index
+        
     # construct feature matrix
     # construct hypergraph incidence matrix
     print('Constructing hypergraph incidence matrix! \n(It may take several minutes! Please wait patiently!)')
     H = None
     if use_st_feature_for_structure:
-        tmp = hgut.construct_muiH_with_KNN(fts_info,fts_breakfast,fts_lunch,fts_dinner,fts_library,lbls, K_neigs=K_neigs,
+        # 使用单视图构建超图
+        tmp = hgut.construct_H_with_KNN(fts_, lbls_, K_neigs=K_neigs,
                                         split_diff_scale=split_diff_scale,
                                         is_probH=is_probH, m_prob=m_prob)
         print(tmp.shape)
@@ -222,7 +210,18 @@ def _main():
                                                gamma=0.9)
     
     criterion = torch.nn.CrossEntropyLoss()
-    model_ft = train_model(model_ft, criterion, optimizer, schedular, 10000, print_freq=50)
+    model_ft = train_model(model_ft, criterion, optimizer, schedular, 2000, print_freq=50)
+
+    print("\nFinal Evaluation on Test Set (Best Model):")
+    model_ft.eval()
+    with torch.no_grad():
+        outputs = model_ft(fts, G)
+        _, preds = torch.max(outputs, 1)
+        # idx_test is global
+        accuracy = accuracy_score(lbls[idx_test].cpu().numpy(), preds[idx_test].cpu().numpy())
+        classification = classification_report(lbls[idx_test].cpu().numpy(), preds[idx_test].cpu().numpy(), digits=4)
+        print(f"Accuracy: {accuracy}")
+        print(classification)
 
 
 if __name__ == '__main__':

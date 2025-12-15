@@ -600,10 +600,7 @@ def construct_H_with_KNN(X, y, K_neigs=[2], split_diff_scale=False, is_probH=Tru
             H = hyperedge_concat(H, H_tmp)
         else:
             H.append(H_tmp)
-    print('No robuts!')
-    #H= robust(X,y.astype(np.int32),H)
-    #print('robuts!')
-#     print(H)
+    
     return H
    
 
