@@ -39,7 +39,11 @@ def main():
     parser.add_argument('--n_jobs', type=int, default=None)
 
     # 数据参数
-    parser.add_argument('--data_path', type=str, required=True, help='Path to the data file')
+    parser.add_argument(
+        '--data_path',
+        type=str,
+        default='processed_happiness_data.csv',
+        help='Path to the data file (default: processed_happiness_data.csv in current dir)')
     parser.add_argument('--dataset_type', type=str, choices=['3class', '2class'], default='3class',
                         help='Type of dataset: 3class for 3 GPA categories, 2class for 2 GPA categories')
     parser.add_argument('--test_size', type=float, default=0.2, help='Test set size ratio')
