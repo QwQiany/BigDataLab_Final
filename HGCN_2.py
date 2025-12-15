@@ -17,7 +17,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import classification_report
 import warnings
 warnings.filterwarnings('ignore')
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+# Use default CUDA visibility so PyTorch can pick up available GPU(s).
 def load_st_construct_H(
                              m_prob=1,
                              K_neigs=[1],
